@@ -1,7 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
-from PIL import Image
+from streamlit_gsheets import GSheetsConnection
 import datetime
+import pandas as pd
 
 # --- 基礎設定 ---
 st.set_page_config(page_title="我的寵物小世界", page_icon="🐾", layout="wide")
