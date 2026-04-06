@@ -47,28 +47,28 @@ members = get_all_members()
 # --- 側邊欄 ---
 with st.sidebar:
     st.title("⚙️ 設定中心")
-    group_type = st.text_input("定義空間類型", value="小世界")
+    group_type = st.text_input("為此空間命名", value="小世界")
     
     tab_post, tab_manage = st.tabs(["📸 分享紀錄", "➕ 成員管理"])
     
     with tab_manage:
-        st.subheader(f"✨ 註冊{group_type}成員")
-        new_name = st.text_input("成員姓名")
-        new_bio = st.text_area("性格設定 (AI 的靈魂)")
+        st.subheader(f"✨新增{group_type}成員")
+        new_name = st.text_input("成員名稱")
+        new_bio = st.text_area("性格描述")
         
         # [功能升級] 使用檔案上傳器來取代網址輸入
         avatar_file = st.file_uploader("上傳成員大頭照", type=['png', 'jpg', 'jpeg'])
         
         if st.button(f"正式加入這個{group_type}"):
             if new_name and new_bio:
-                with st.spinner("正在為成員辦理入厝手續..."):
+                with st.spinner("入住中..."):
                     # 將圖片檔案轉成 Base64 字串
                     avatar_b64 = convert_image_to_base64(avatar_file)
                     if add_member(new_name, new_bio, avatar_b64):
-                        st.success(f"{new_name} 已帶著行李住進{group_type}了！")
+                        st.success(f"{new_name}已成功面試進入{group_type}了！")
                         st.rerun()
             else:
-                st.warning("姓名與性格是必填的喔！")
+                st.warning("未填寫名稱或性格描述！")
 
     with tab_post:
         st.subheader("發布紀錄")
@@ -80,13 +80,11 @@ with st.sidebar:
             selected = st.multiselect("參與成員", member_names)
             
         img = st.file_uploader("這篇動態的照片", type=['png', 'jpg', 'jpeg'])
-        msg = st.text_area("寫下當下的心情...")
-        btn_pub = st.button("確認發布動態")
+        msg = st.text_area("說些什麼...")
+        btn_pub = st.button("確認發布")
 
 # --- 主畫面 ---
-st.title(f"✨ 我們的{group_type}動態牆")
-
-
+st.title(f"✨{group_type}")
 
 if btn_pub and img and selected:
     st.divider()
@@ -94,20 +92,30 @@ if btn_pub and img and selected:
     
     with col1:
         st.image(img, use_container_width=True)
-        with st.popover("🗑️ 撤回內容"):
+        with st.popover("🗑️撤回內容"):
             if st.button("確認從牆上拿下來"):
                 st.rerun()
 
     with col2:
-        st.subheader(f"📍 發生在{group_type}的小插曲")
+        st.subheader(f"📍{group_type}又出什麼事？")
         st.write(msg)
         
-        for p_name in selected:
-            p_info = next(m for m in members if m['name'] == p_name)
-            # 這裡的 avatar 欄位現在存放的是 Base64 字串
-            with st.chat_message("assistant", avatar=p_info['avatar_url'] if p_info['avatar_url'] else "🐾"):
-                st.write(f"**{p_name} 的回應：**")
-                prompt = f"場景：{group_type}。你是{p_name}，性格：{p_info['bio']}。主人發文：{msg}。請給予療癒回覆。"
-                st.write(model.generate_content(prompt).text)
+# --- 尋找 AI 回覆邏輯的那一段，改寫成這樣 ---
+for p_name in selected:
+    # 找到對應性格
+    p_info = next(m for m in members if m['name'] == p_name)
+    with st.chat_message("assistant", avatar=p_info['avatar_url'] if p_info['avatar_url'] else "🐾"):
+        st.write(f"**{p_name} 的回覆：**")
+        with st.spinner("思考中..."):
+            try:
+                # 這裡稍微改強一點：讓 AI 同時看照片和文字！
+                prompt = f"場景：{group_type}。你是{p_name}，性格：{p_info['bio']}。主人發文：{msg}。請針對內容，給予讚美或者批判性建議的回覆。"
+                
+                # 如果有上傳圖片，我們把圖片也餵給 AI
+                response = model.generate_content([prompt, img]) 
+                st.write(response.text)
+            except Exception as e:
+                # 這裡會印出真正的錯誤原因
+                st.error(f"哎呀，{p_name} 暫時沒辦法回話：{str(e)}")
 else:
     st.info("開啟左側選單，紀錄你們的點點滴滴吧！")
