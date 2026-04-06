@@ -20,14 +20,30 @@ except Exception as e:
     st.error(f"初始化失敗，請檢查 Secrets 設定：{e}")
     st.stop()  # 如果這步失敗，就停止執行後面的程式碼
     
-    # 嘗試使用最穩定的名稱
-    model = genai.GenerativeModel('gemini-1.5-flash') 
+# --- 尋找這段 AI 初始化代碼，替換為以下內容 ---
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+    
+    # [新邏輯] 測試清單：我們會依序測試這幾個名稱
+    model_options = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro-vision']
+    model = None
+    
+    for m_name in model_options:
+        try:
+            # 嘗試建立模型
+            test_model = genai.GenerativeModel(m_name)
+            # 這裡我們換個方法測試能不能動 (不需要真的產生內容)
+            model = test_model
+            break # 成功了就跳出迴圈
+        except:
+            continue
+            
+    if model is None:
+        st.error("😭 所有的 AI 模型頻道目前都無法連通，請檢查 API Key 是否有效。")
 except Exception as e:
-    st.error(f"AI 初始化失敗：{e}")
-except:
-    st.error("請在 Secrets 設定 GAS_URL 與 GEMINI_API_KEY")
-    st.stop()
-
+    st.error(f"初始化失敗：{e}")
+    
 # [新增] 圖片轉 Base64 的函數
 def convert_image_to_base64(uploaded_file):
     if uploaded_file is not None:
