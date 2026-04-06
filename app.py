@@ -113,7 +113,7 @@ for p_name in selected:
     p_info = next(m for m in members if m['name'] == p_name)
     with st.chat_message("assistant", avatar=p_info.get('avatar_url') if p_info.get('avatar_url') else "🐾"):
         st.write(f"**{p_name} 的回覆：**")
-        with st.spinner(喔！f"{p_name} 秒讀了，打字中..."):
+        with st.spinner(f"喔！{p_name} 秒讀了，打字中..."):
             try:
                 img_pil = Image.open(img)
                 prompt = f"場景：{group_type}。你是{p_name}，性格：{p_info['bio']}。主人發文：{msg}。請根據照片內容與文字，，給予讚美或者批判性建議的回覆。"
