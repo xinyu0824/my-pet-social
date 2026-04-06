@@ -5,6 +5,7 @@ import json
 import base64
 import datetime
 from io import BytesIO
+from PIL import Image
 
 # --- 基礎設定 ---
 st.set_page_config(page_title="我的互動小世界", page_icon="🌐", layout="wide")
@@ -100,22 +101,24 @@ if btn_pub and img and selected:
         st.subheader(f"📍{group_type}又出什麼事？")
         st.write(msg)
         
-# --- 尋找 AI 回覆邏輯的那一段，改寫成這樣 ---
+# --- 尋找 AI 回覆邏輯的那一段 ---
 for p_name in selected:
-    # 找到對應性格
     p_info = next(m for m in members if m['name'] == p_name)
-    with st.chat_message("assistant", avatar=p_info['avatar_url'] if p_info['avatar_url'] else "🐾"):
+    with st.chat_message("assistant", avatar=p_info.get('avatar_url') if p_info.get('avatar_url') else "🐾"):
         st.write(f"**{p_name} 的回覆：**")
-        with st.spinner("思考中..."):
+        with st.spinner(f"{p_name} 正在看照片..."):
             try:
-                # 這裡稍微改強一點：讓 AI 同時看照片和文字！
-                prompt = f"場景：{group_type}。你是{p_name}，性格：{p_info['bio']}。主人發文：{msg}。請針對內容，給予讚美或者批判性建議的回覆。"
+                # [關鍵步驟] 將 Streamlit 的檔案轉成 PIL 影像格式
+                img_pil = Image.open(img) 
                 
-                # 如果有上傳圖片，我們把圖片也餵給 AI
-                response = model.generate_content([prompt, img]) 
+                # 設定 Prompt
+                prompt = f"場景：{group_type}。你是{p_name}，性格：{p_info['bio']}。主人發文：{msg}。請根據照片內容與文字，，給予讚美或者批判性建議的回覆。"
+                
+                # 這次 AI 真的能同時「看到」照片與「讀到」文字了！
+                response = model.generate_content([prompt, img_pil])
                 st.write(response.text)
             except Exception as e:
-                # 這裡會印出真正的錯誤原因
-                st.error(f"哎呀，{p_name} 暫時沒辦法回話：{str(e)}")
+                st.error(f"哎呀，{p_name} 沒看清照片：{str(e)}")        
+
 else:
     st.info("開啟左側選單，紀錄你們的點點滴滴吧！")
