@@ -10,13 +10,15 @@ from PIL import Image
 # --- 基礎設定 ---
 st.set_page_config(page_title="我的互動小世界", page_icon="🌐", layout="wide")
 
-# 1. 取得 Secrets
+# --- 1. 取得 Secrets 資訊 (大約在第 15-25 行之間) ---
 try:
     GAS_URL = st.secrets["GAS_URL"]
-# --- 尋找這段 AI 初始化代碼 ---
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # 這裡我們換成最穩定的初始化方式
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    st.error(f"初始化失敗，請檢查 Secrets 設定：{e}")
+    st.stop()  # 如果這步失敗，就停止執行後面的程式碼
     
     # 嘗試使用最穩定的名稱
     model = genai.GenerativeModel('gemini-1.5-flash') 
