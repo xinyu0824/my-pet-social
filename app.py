@@ -4,8 +4,8 @@ import requests
 import json
 import base64
 import datetime
+from PIL import Image  # 處理照片必備
 from io import BytesIO
-from PIL import Image
 
 # --- 基礎設定 ---
 st.set_page_config(page_title="我的互動小世界", page_icon="🌐", layout="wide")
@@ -110,30 +110,52 @@ if btn_pub and img and selected:
         st.subheader(f"📍{group_type}又出什麼事？")
         st.write(msg)
         
-# --- 找到 AI 回覆的那段 loop ---
-for p_name in selected:
-    p_info = next(m for m in members if m['name'] == p_name)
-    with st.chat_message("assistant", avatar=p_info.get('avatar_url') if p_info.get('avatar_url') else "🐾"):
-        st.write(f"**{p_name} 的回覆：**")
-        with st.spinner(f"喔！{p_name} 秒讀了，打字中..."):
-            try:
-                img_pil = Image.open(img)
-                prompt = f"場景：{group_type}。你是{p_name}，性格：{p_info['bio']}。主人發文：{msg}。請根據照片內容與文字，，給予讚美或者批判性建議的回覆。"
-                
-                # [升級處] 強制要求回覆，避免因為 API 版本問題卡住
-                response = model.generate_content(
-                    [prompt, img_pil],
-                    generation_config=genai.types.GenerationConfig(
-                        candidate_count=1,
-                        max_output_tokens=500,
-                        temperature=0.7,
-                    )
-                )
-                st.write(response.text)
-            except Exception as e:
-                # 如果還是 404，這裡會顯示更詳細的提示
-                st.error(f"哎呀，{p_name} 遇到了年紀大了，看不清圖片，請稍等一下：{str(e)}")
-                st.info("提示：如果持續出現404，可能是API Key需要重新領取或稍微等待 Google 伺服器更新。")
+# --- 這裡是最關鍵的「防偷跑」邏輯 ---
+# 確保所有條件（點按鈕、有圖、有成員）都滿足，AI 才會開口
+if btn_pub and img and selected:
+    st.divider()
+    col1, col2 = st.columns([1, 1.5])
+    
+    with col1:
+        st.image(img, use_container_width=True)
+        # 刪除確認
+        with st.popover("🗑️ 撤回內容"):
+            st.warning("確定要從牆上拿下來嗎？")
+            if st.button("確認撤回"):
+                st.rerun()
+
+    with col2:
+        st.subheader(f"📍 在 {group_type} 發生的故事")
+        st.write(msg if msg else "(主人沒有寫下文字，但照片說明了一切...)")
+        st.caption(f"參與成員：{' '.join([f'@{p}' for p in selected])}")
+        
+        # --- AI 回覆區：現在只有在按了「確認發布」後才會跑這裡 ---
+        for p_name in selected:
+            # 找到成員資訊
+            p_info = next((m for m in members if m['name'] == p_name), None)
+            
+            if p_info:
+                with st.chat_message("assistant", avatar=p_info.get('avatar_url') if p_info.get('avatar_url') else "🐾"):
+                    st.write(f"**{p_name} 的回覆：**")
+                    with st.spinner(f"喔！{p_name} 秒讀了，打字中..."):
+                        try:
+                            # 1. 轉換圖片格式 (確保 PIL 已載入)
+                            img_pil = Image.open(img)
+                            
+                            # 2. 重新初始化模型，使用更完整的名稱路徑
+                            # 有時候需要加 'models/' 才能解決 404
+                            temp_model = genai.GenerativeModel('models/gemini-1.5-flash')
+                            
+                            # 3. 建立咒語 (Prompt)
+                            prompt = f"場景設定：{group_type}。你的身分：{p_name}。性格背景：{p_info['bio']}。主人發文：{msg}。請根據照片與文字，給予讚美或者批判性建議的回覆。"
+                            
+                            # 4. 呼叫 AI
+                            response = temp_model.generate_content([prompt, img_pil])
+                            st.write(response.text)
+                            
+                        except Exception as e:
+                            st.error(f"哎呀，{p_name} 年紀大了，看不清圖片，請耐心稍等：{str(e)}")
+                            st.info("💡 如果看到404，請確認Secrets裡的API Key是否有效，並嘗試重新整理網頁。")  
 
 else:
     st.info("開啟左側選單，紀錄你們的點點滴滴吧！")
