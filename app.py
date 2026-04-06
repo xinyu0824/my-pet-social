@@ -13,8 +13,15 @@ st.set_page_config(page_title="我的互動小世界", page_icon="🌐", layout=
 # 1. 取得 Secrets
 try:
     GAS_URL = st.secrets["GAS_URL"]
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash')
+# --- 尋找這段 AI 初始化代碼 ---
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+    
+    # 嘗試使用最穩定的名稱
+    model = genai.GenerativeModel('gemini-1.5-flash') 
+except Exception as e:
+    st.error(f"AI 初始化失敗：{e}")
 except:
     st.error("請在 Secrets 設定 GAS_URL 與 GEMINI_API_KEY")
     st.stop()
@@ -101,24 +108,30 @@ if btn_pub and img and selected:
         st.subheader(f"📍{group_type}又出什麼事？")
         st.write(msg)
         
-# --- 尋找 AI 回覆邏輯的那一段 ---
+# --- 找到 AI 回覆的那段 loop ---
 for p_name in selected:
     p_info = next(m for m in members if m['name'] == p_name)
     with st.chat_message("assistant", avatar=p_info.get('avatar_url') if p_info.get('avatar_url') else "🐾"):
         st.write(f"**{p_name} 的回覆：**")
-        with st.spinner(f"{p_name} 正在看照片..."):
+        with st.spinner(喔！f"{p_name} 秒讀了，打字中..."):
             try:
-                # [關鍵步驟] 將 Streamlit 的檔案轉成 PIL 影像格式
-                img_pil = Image.open(img) 
-                
-                # 設定 Prompt
+                img_pil = Image.open(img)
                 prompt = f"場景：{group_type}。你是{p_name}，性格：{p_info['bio']}。主人發文：{msg}。請根據照片內容與文字，，給予讚美或者批判性建議的回覆。"
                 
-                # 這次 AI 真的能同時「看到」照片與「讀到」文字了！
-                response = model.generate_content([prompt, img_pil])
+                # [升級處] 強制要求回覆，避免因為 API 版本問題卡住
+                response = model.generate_content(
+                    [prompt, img_pil],
+                    generation_config=genai.types.GenerationConfig(
+                        candidate_count=1,
+                        max_output_tokens=500,
+                        temperature=0.7,
+                    )
+                )
                 st.write(response.text)
             except Exception as e:
-                st.error(f"哎呀，{p_name} 沒看清照片：{str(e)}")        
+                # 如果還是 404，這裡會顯示更詳細的提示
+                st.error(f"哎呀，{p_name} 遇到了年紀大了，看不清圖片，請稍等一下：{str(e)}")
+                st.info("提示：如果持續出現404，可能是API Key需要重新領取或稍微等待 Google 伺服器更新。")
 
 else:
     st.info("開啟左側選單，紀錄你們的點點滴滴吧！")
